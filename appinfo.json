@@ -1,5 +1,9 @@
 {
-    "appKeys": {},
+    "appKeys": {
+        "KEY_CONDITIONS": 1,
+        "KEY_NIGHTTEMP": 2,
+        "KEY_TEMPERATURE": 0
+    },
     "capabilities": [
         "location"
     ],

@@ -5,7 +5,8 @@
 //alternate to #define, better when there are lots of entries
 enum {
   KEY_TEMPERATURE = 0,
-  KEY_CONDITIONS
+  KEY_CONDITIONS = 1,
+  KEY_NIGHTTEMP 
 };
 //Create the object for the main window by pointing to it
 static Window *s_main_window;
@@ -13,6 +14,46 @@ static Window *s_main_window;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_weather_layer;
+static TextLayer *s_forecastweather_layer;
+static TextLayer *s_batterynumber_layer;
+static Layer *s_battery_layer;
+static int s_battery_level;
+//basic formats for text
+static void basic_text(TextLayer *txt, const char * font){
+  // Improve the layout to be more like a watchface
+    text_layer_set_background_color(txt, GColorClear);
+    text_layer_set_text_color(txt, GColorWhite);
+    text_layer_set_font(txt, fonts_get_system_font(font));
+    text_layer_set_text_alignment(txt, GTextAlignmentCenter);
+}
+//call back for getting the battery level
+static void battery_callback(BatteryChargeState state) {
+  // Record the new battery level
+  s_battery_level = state.charge_percent;
+  // Update meter
+layer_mark_dirty(s_battery_layer);
+}
+//Battery updater
+static void battery_update_proc(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
+
+  // Find the width of the bar
+  int width = (int)(float)(((float)s_battery_level / 100.0F) * 114.0F);
+
+  // Draw the background
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+
+  // Draw the bar
+  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
+
+  //prepare the text version
+  char batt_buffer[10];
+  snprintf(batt_buffer, 10, "%d", s_battery_level);
+  basic_text(s_batterynumber_layer,FONT_KEY_GOTHIC_18);
+  text_layer_set_text(s_batterynumber_layer, batt_buffer);
+}
 
 static void update_time() {
   // Get a tm structure
@@ -20,26 +61,63 @@ static void update_time() {
   struct tm *tick_time = localtime(&temp);
 
   // Write the current hours and minutes into a buffer
-  static char s_buffer[12];
+  static char s_buffer[20];
   static char sdate_buffer[30];
-  //format the time
-  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?
-                                          "%H:%M:%S" : "%I:%M:S", tick_time);
+  
+    //format the time
+  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?"%H:%M:%S" :"%I:%M:%S", tick_time);
 
   //format the date
     strftime(sdate_buffer, sizeof(sdate_buffer), "%a  %e-%b-%Y", tick_time);
-  
-  // Display this time & date on the TextLayer
-  text_layer_set_text(s_time_layer, s_buffer);
+  //determine if it's AM or PM
+  char *AMPM = tick_time->tm_hour>11 ? " PM" : " AM";
+  // Display this time & date on the TextLayer, include AM or PM if it's not in 24hr time
+  text_layer_set_text(s_time_layer,clock_is_24h_style() ?  s_buffer : strcat(s_buffer,AMPM));
   text_layer_set_text(s_date_layer, sdate_buffer);
+  
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
+  
+  // Get weather update every 30 minutes
+if(tick_time->tm_min % 30 == 0) {
+  // Begin dictionary
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+
+  // Add a key-value pair
+  dict_write_uint8(iter, 0, 0);
+
+  // Send the message!
+  app_message_outbox_send();
+}
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
+// Store incoming weather info from JS
+static char temperature_buffer[8];
+static char conditions_buffer[32];
+static char weather_layer_buffer[32];
+static char nightfull_buffer[50];
 
+// Read tuples for data
+Tuple *temp_tuple = dict_find(iterator, KEY_TEMPERATURE);
+Tuple *conditions_tuple = dict_find(iterator, KEY_CONDITIONS);
+Tuple *night_tuple = dict_find(iterator, KEY_NIGHTTEMP);
+
+  // If all data is available, use it
+if(temp_tuple && conditions_tuple && night_tuple) {
+  snprintf(temperature_buffer, sizeof(temperature_buffer), "%dC", (int)temp_tuple->value->int32);
+  snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", conditions_tuple->value->cstring);
+  // Assemble full string and display
+  snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s, %s", temperature_buffer, conditions_buffer);
+  text_layer_set_text(s_weather_layer, weather_layer_buffer);
+  
+  //prep the night time data
+  snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC","tonight: " ,(int)night_tuple->value->int32);
+  text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
+  }else {printf("err1");}
 }
 //error handling (I think)
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
@@ -53,14 +131,6 @@ static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResul
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
 }
-//basic formats for text
-static void basic_text(TextLayer *txt, const char * font){
-  // Improve the layout to be more like a watchface
-    text_layer_set_background_color(txt, GColorClear);
-    text_layer_set_text_color(txt, GColorWhite);
-    text_layer_set_font(txt, fonts_get_system_font(font));
-    text_layer_set_text_alignment(txt, GTextAlignmentCenter);
-}
 
 static void main_window_load(Window *window) {
 // Get information about the Window
@@ -72,19 +142,35 @@ static void main_window_load(Window *window) {
   s_time_layer = text_layer_create(
       GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 100));
   s_date_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(82, 78), bounds.size.w, 100));
+      GRect(0, PBL_IF_ROUND_ELSE(82, 76), bounds.size.w, 100));
   s_weather_layer = text_layer_create(
     GRect(0, PBL_IF_ROUND_ELSE(125, 120), bounds.size.w, 25));
+  s_forecastweather_layer = text_layer_create(
+    GRect(0, PBL_IF_ROUND_ELSE(140, 135), bounds.size.w, 100));
+  s_batterynumber_layer = text_layer_create(
+    GRect(0, PBL_IF_ROUND_ELSE(52, 46), bounds.size.w, 100));
+
 //set text characteristics for each text layer
   basic_text(s_time_layer,FONT_KEY_GOTHIC_28);
   basic_text(s_date_layer,FONT_KEY_GOTHIC_18);
   basic_text(s_weather_layer,FONT_KEY_GOTHIC_18);
+  basic_text(s_forecastweather_layer,FONT_KEY_GOTHIC_18);
   //test text for weather
   text_layer_set_text(s_weather_layer, "Loading...");
-  // Add it as a child layer to the Window's root layer
+  text_layer_set_text(s_forecastweather_layer, "Loading...");
+  // Add textlayers as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_weather_layer));
+  layer_add_child(window_layer, text_layer_get_layer(s_forecastweather_layer));
+  layer_add_child(window_layer, text_layer_get_layer(s_batterynumber_layer));
+
+  // Create battery meter Layer
+s_battery_layer = layer_create(GRect(14, 54, 115, 2));
+layer_set_update_proc(s_battery_layer, battery_update_proc);
+
+// Add to Window
+layer_add_child(window_get_root_layer(window), s_battery_layer);
 }
 
 static void main_window_unload(Window *window) {
@@ -92,10 +178,15 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_weather_layer);
+  text_layer_destroy(s_forecastweather_layer);
+  text_layer_destroy(s_batterynumber_layer);
+  layer_destroy(s_battery_layer);
 }
 
 
 static void init() {
+  // Register for battery level updates
+battery_state_service_subscribe(battery_callback);
     // Create main Window element and assign to pointer
   s_main_window = window_create();
 
@@ -118,6 +209,8 @@ static void init() {
   window_stack_push(s_main_window, true);
   // Make sure the time is displayed from the start
   update_time();
+  // Ensure battery level is displayed from the start
+battery_callback(battery_state_service_peek());
 }
 
 static void deinit(){
