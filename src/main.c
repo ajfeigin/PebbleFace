@@ -49,8 +49,8 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
 
   //prepare the text version
-  char batt_buffer[10];
-  snprintf(batt_buffer, 10, "%d", s_battery_level);
+  static char batt_buffer[20];
+  snprintf(batt_buffer, 20, "battery %d%%", s_battery_level);
   basic_text(s_batterynumber_layer,FONT_KEY_GOTHIC_18);
   text_layer_set_text(s_batterynumber_layer, batt_buffer);
 }
@@ -148,7 +148,7 @@ static void main_window_load(Window *window) {
   s_forecastweather_layer = text_layer_create(
     GRect(0, PBL_IF_ROUND_ELSE(140, 135), bounds.size.w, 100));
   s_batterynumber_layer = text_layer_create(
-    GRect(0, PBL_IF_ROUND_ELSE(52, 46), bounds.size.w, 100));
+    GRect(0, PBL_IF_ROUND_ELSE(35, 30), bounds.size.w, 100));
 
 //set text characteristics for each text layer
   basic_text(s_time_layer,FONT_KEY_GOTHIC_28);
