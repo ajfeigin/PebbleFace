@@ -1,4 +1,4 @@
-#include <pebble.h>
+  #include <pebble.h>
 //keys for dictionary in data passing b/w phone & watch
 //#define KEY_TEMPERATURE 0
 //#define KEY_CONDITIONS 1
@@ -19,18 +19,32 @@ static Layer *s_battery_layer;
 static int s_battery_level;
 static BitmapLayer  *s_bt_icon_layer;
 static GBitmap *s_bt_icon_bitmap;
-static const char *largefont = FONT_KEY_LECO_32_BOLD_NUMBERS;
+static GFont s_time_font;
+static const char *largefont =FONT_KEY_LECO_32_BOLD_NUMBERS;
 static const char *medfont = FONT_KEY_GOTHIC_18_BOLD;
 static const char *smallfont = FONT_KEY_GOTHIC_18;
 
-//basic formats for text
+//Other than setting the font this does all the basic text setup
+static void basic_text_internal(TextLayer *txt){
+  text_layer_set_background_color(txt, GColorClear);
+  text_layer_set_text_color(txt, GColorWhite);
+  text_layer_set_text_alignment(txt, GTextAlignmentCenter);
+}
+
+//basic formats for text with a system font
 static void basic_text(TextLayer *txt, const char * font){
   // Improve the layout to be more like a watchface
-    text_layer_set_background_color(txt, GColorClear);
-    text_layer_set_text_color(txt, GColorWhite);
+    basic_text_internal(txt);
     text_layer_set_font(txt, fonts_get_system_font(font));
-    text_layer_set_text_alignment(txt, GTextAlignmentCenter);
+    
 }
+//basic text setup with a custom font
+static void basic_text_cust(TextLayer *txt, GFont font){
+  basic_text_internal(txt);
+  text_layer_set_font(txt,font);
+}
+
+
 //call back for getting the battery level
 static void battery_callback(BatteryChargeState state) {
   // Record the new battery level
@@ -167,8 +181,15 @@ static void main_window_load(Window *window) {
   s_batterynumber_layer = text_layer_create(
     GRect(0, PBL_IF_ROUND_ELSE(5, 0), bounds.size.w, 100));
 
+  //load custom font(s)
+  // Create GFont
+s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_CONDENSED_42));
+
+// Apply to TextLayer
+
 //set text characteristics for each text layer
-  basic_text(s_time_layer,largefont);
+  basic_text_cust(s_time_layer,s_time_font); 
+  
   basic_text(s_date_layer,medfont);
   basic_text(s_weather_layer,smallfont);
   basic_text(s_forecastweather_layer,smallfont);
@@ -203,7 +224,10 @@ bluetooth_callback(connection_service_peek_pebble_app_connection());
 }
 
 static void main_window_unload(Window *window) {
-    // Destroy TextLayer
+  // Destroy Custom Fonts
+  fonts_unload_custom_font(s_time_font);
+  
+  // Destroy TextLayer & other layers
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_weather_layer);
