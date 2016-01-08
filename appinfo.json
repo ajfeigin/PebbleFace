@@ -15,6 +15,12 @@
     "resources": {
         "media": [
             {
+                "file": "images/bt-icon - small.png",
+                "name": "BT_ICON_SMALL",
+                "targetPlatforms": null,
+                "type": "png"
+            },
+            {
                 "file": "fonts/Roboto-Condensed.ttf",
                 "name": "FONT_ROBOTO_CONDENSED_42",
                 "targetPlatforms": null,

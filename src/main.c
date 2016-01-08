@@ -13,7 +13,7 @@ enum {
 //Create the object for the main window by pointing to it
 static Window *s_main_window;
 // create a text layer
-static TextLayer *s_time_layer, *s_date_layer,*s_weather_layer, *s_forecastweather_layer;
+static TextLayer *s_time_layer, *s_date_layer,*s_weather_layer, *s_forecastweather_layer, *s_seconds_layer;
 static TextLayer *s_batterynumber_layer;
 static Layer *s_battery_layer;
 static int s_battery_level;
@@ -88,11 +88,13 @@ static void update_time() {
   struct tm *tick_time = localtime(&temp);
 
   // Write the current hours and minutes into a buffer
-  static char s_buffer[20];
+  static char time_buffer[20];
+  static char sec_buffer[20];
   static char sdate_buffer[30];
   
     //format the time
-  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?"%H:%M:%S" :"%l:%M:%S", tick_time);
+  strftime(time_buffer, sizeof(time_buffer), clock_is_24h_style() ?"%H:%M" :"%l:%M", tick_time);
+  strftime(sec_buffer, sizeof(sec_buffer),"%S", tick_time);
 
   //format the date
     strftime(sdate_buffer, sizeof(sdate_buffer), "%a  %e-%b-%Y", tick_time);
@@ -100,7 +102,8 @@ static void update_time() {
   //char *AMPM = tick_time->tm_hour>11 ? " PM" : " AM";
   // Display this time & date on the TextLayer, include AM or PM if it's not in 24hr time
   //text_layer_set_text(s_time_layer,clock_is_24h_style() ?  s_buffer : strcat(s_buffer,AMPM));
-  text_layer_set_text(s_time_layer,s_buffer);
+  text_layer_set_text(s_time_layer,time_buffer);
+  text_layer_set_text(s_seconds_layer,sec_buffer);
   text_layer_set_text(s_date_layer, sdate_buffer);  
 }
 
@@ -169,9 +172,12 @@ static void main_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
 
+  static int timeX = 35;
   // Create the TextLayer with specific bounds
   s_time_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(35, 30), bounds.size.w, 100));
+      GRect(0, PBL_IF_ROUND_ELSE(timeX, timeX-5), bounds.size.w, 75));
+  s_seconds_layer = text_layer_create(
+      GRect(60, PBL_IF_ROUND_ELSE(timeX+5, timeX), bounds.size.w, 75));
   s_date_layer = text_layer_create(
       GRect(0, PBL_IF_ROUND_ELSE(82, 76), bounds.size.w, 100));
   s_weather_layer = text_layer_create(
@@ -189,7 +195,7 @@ s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO
 
 //set text characteristics for each text layer
   basic_text_cust(s_time_layer,s_time_font); 
-  
+  basic_text(s_seconds_layer,medfont);
   basic_text(s_date_layer,medfont);
   basic_text(s_weather_layer,smallfont);
   basic_text(s_forecastweather_layer,smallfont);
@@ -198,6 +204,7 @@ s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO
   text_layer_set_text(s_forecastweather_layer, "Loading...");
   // Add textlayers as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
+  layer_add_child(window_layer, text_layer_get_layer(s_seconds_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_weather_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_forecastweather_layer));
@@ -212,10 +219,10 @@ layer_set_update_proc(s_battery_layer, battery_update_proc);
 layer_add_child(window_get_root_layer(window), s_battery_layer);
   
   // Create the Bluetooth icon GBitmap
-s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON);
+s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON_SMALL);
 
 // Create the BitmapLayer to display the GBitmap
-s_bt_icon_layer = bitmap_layer_create(GRect(59, 0, 30, 30));
+s_bt_icon_layer = bitmap_layer_create(GRect(75, 100, 30, 30));
 bitmap_layer_set_bitmap(s_bt_icon_layer, s_bt_icon_bitmap);
 layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(s_bt_icon_layer));
   
@@ -229,6 +236,7 @@ static void main_window_unload(Window *window) {
   
   // Destroy TextLayer & other layers
   text_layer_destroy(s_time_layer);
+  text_layer_destroy(s_seconds_layer);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_weather_layer);
   text_layer_destroy(s_forecastweather_layer);
