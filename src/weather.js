@@ -1,5 +1,5 @@
 var myAPIKey = '772883c4aae75607c2882944e63d570e';
-var temperature,night,conditions;
+var temperature,night,conditions,todaymax;
 var dictionary = {};
 // Listen for when the watchface is opened
 Pebble.addEventListener('ready', 
@@ -20,18 +20,19 @@ Pebble.addEventListener('appmessage',
 // webquery unless the dictionary is set and sent in the webquery callback which prevents getting data
 // from multiple queries
 var currcallback = function(){
-   console.log("111 temp is  " + temperature);
+ //  console.log("111 temp is  " + temperature);
   //dictionary.push({
   dictionary.KEY_TEMPERATURE= temperature;
   dictionary.KEY_CONDITIONS= conditions;
   //});
-  console.log("123" + dictionary.KEY_CONDITIONS);
+//  console.log("123" + dictionary.KEY_CONDITIONS);
 };
 
 var forecastcallback = function(){
-   console.log("112 night temp is  " + night);
+//   console.log("112 night temp is  " + night);
   dictionary.KEY_NIGHTTEMP = night;
-  console.log("124 " + dictionary.KEY_NIGHTTEMP);
+  dictionary.KEY_TODAYMAX = todaymax;
+ // console.log("124 " + dictionary.KEY_NIGHTTEMP);
   // Send to Pebble
 Pebble.sendAppMessage(dictionary,
   function(e) {
@@ -67,7 +68,6 @@ function locationSuccess(pos) {
       // responseText contains a JSON object with weather info
       var json = JSON.parse(responseText);      
        temperature = Math.round(json.main.temp);
-      //var temperature = Math.round(json.list[0].temp.day); 
 //      console.log('Temperature is ' + temperature);
 
       // Conditions
@@ -81,7 +81,7 @@ function locationSuccess(pos) {
       var json = JSON.parse(responseText);      
        night = json.list[0].temp.night; 
       //var temperature = Math.round(json.list[0].temp.day); 
-
+      todaymax = Math.round(json.list[0].temp.day); 
       callback();
       },forecastcallback   
   );

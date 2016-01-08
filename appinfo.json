@@ -2,7 +2,8 @@
     "appKeys": {
         "KEY_CONDITIONS": 1,
         "KEY_NIGHTTEMP": 2,
-        "KEY_TEMPERATURE": 0
+        "KEY_TEMPERATURE": 0,
+        "KEY_TODAYMAX": 3
     },
     "capabilities": [
         "location"
@@ -11,7 +12,14 @@
     "longName": "Watchface 2",
     "projectType": "native",
     "resources": {
-        "media": []
+        "media": [
+            {
+                "file": "images/bt-icon.png",
+                "name": "BT_ICON",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            }
+        ]
     },
     "sdkVersion": "3",
     "shortName": "Watchface 2",

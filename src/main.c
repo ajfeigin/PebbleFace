@@ -6,7 +6,8 @@
 enum {
   KEY_TEMPERATURE = 0,
   KEY_CONDITIONS = 1,
-  KEY_NIGHTTEMP 
+  KEY_NIGHTTEMP =2,
+  KEY_TODAYMAX 
 };
 //Create the object for the main window by pointing to it
 static Window *s_main_window;
@@ -18,6 +19,12 @@ static TextLayer *s_forecastweather_layer;
 static TextLayer *s_batterynumber_layer;
 static Layer *s_battery_layer;
 static int s_battery_level;
+static BitmapLayer  *s_bt_icon_layer;
+static GBitmap *s_bt_icon_bitmap;
+static const char *largefont = FONT_KEY_BITHAM_42_LIGHT;
+static const char *medfont = FONT_KEY_GOTHIC_18_BOLD;
+static const char *smallfont = FONT_KEY_GOTHIC_18;
+
 //basic formats for text
 static void basic_text(TextLayer *txt, const char * font){
   // Improve the layout to be more like a watchface
@@ -51,10 +58,18 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   //prepare the text version
   static char batt_buffer[20];
   snprintf(batt_buffer, 20, "battery %d%%", s_battery_level);
-  basic_text(s_batterynumber_layer,FONT_KEY_GOTHIC_18);
+  basic_text(s_batterynumber_layer,smallfont);
   text_layer_set_text(s_batterynumber_layer, batt_buffer);
 }
+static void bluetooth_callback(bool connected) {
+  // Show icon if disconnected
+  layer_set_hidden(bitmap_layer_get_layer(s_bt_icon_layer), connected);
 
+  if(!connected) {
+    // Issue a vibrating alert
+    vibes_double_pulse();
+  }
+}
 static void update_time() {
   // Get a tm structure
   time_t temp = time(NULL);
@@ -65,16 +80,16 @@ static void update_time() {
   static char sdate_buffer[30];
   
     //format the time
-  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?"%H:%M:%S" :"%I:%M:%S", tick_time);
+  strftime(s_buffer, sizeof(s_buffer), clock_is_24h_style() ?"%H:%M:%S" :"%l:%M:%S", tick_time);
 
   //format the date
     strftime(sdate_buffer, sizeof(sdate_buffer), "%a  %e-%b-%Y", tick_time);
   //determine if it's AM or PM
-  char *AMPM = tick_time->tm_hour>11 ? " PM" : " AM";
+  //char *AMPM = tick_time->tm_hour>11 ? " PM" : " AM";
   // Display this time & date on the TextLayer, include AM or PM if it's not in 24hr time
-  text_layer_set_text(s_time_layer,clock_is_24h_style() ?  s_buffer : strcat(s_buffer,AMPM));
-  text_layer_set_text(s_date_layer, sdate_buffer);
-  
+  //text_layer_set_text(s_time_layer,clock_is_24h_style() ?  s_buffer : strcat(s_buffer,AMPM));
+  text_layer_set_text(s_time_layer,s_buffer);
+  text_layer_set_text(s_date_layer, sdate_buffer);  
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -97,25 +112,28 @@ if(tick_time->tm_min % 30 == 0) {
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
 // Store incoming weather info from JS
 static char temperature_buffer[8];
+static char maxtemperature_buffer[8];
 static char conditions_buffer[32];
-static char weather_layer_buffer[32];
+static char weather_layer_buffer[50];
 static char nightfull_buffer[50];
 
 // Read tuples for data
 Tuple *temp_tuple = dict_find(iterator, KEY_TEMPERATURE);
 Tuple *conditions_tuple = dict_find(iterator, KEY_CONDITIONS);
 Tuple *night_tuple = dict_find(iterator, KEY_NIGHTTEMP);
+Tuple *max_tuple = dict_find(iterator, KEY_TODAYMAX);
 
   // If all data is available, use it
 if(temp_tuple && conditions_tuple && night_tuple) {
   snprintf(temperature_buffer, sizeof(temperature_buffer), "%dC", (int)temp_tuple->value->int32);
+  snprintf(maxtemperature_buffer, sizeof(maxtemperature_buffer), "%dC", (int)max_tuple->value->int32);
   snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", conditions_tuple->value->cstring);
   // Assemble full string and display
-  snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s, %s", temperature_buffer, conditions_buffer);
+  snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s, %s, %s %s", temperature_buffer, conditions_buffer,"max:",maxtemperature_buffer);
   text_layer_set_text(s_weather_layer, weather_layer_buffer);
   
   //prep the night time data
-  snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC","tonight: " ,(int)night_tuple->value->int32);
+  snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC","tonight:" ,(int)night_tuple->value->int32);
   text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
   }else {printf("err1");}
 }
@@ -140,7 +158,7 @@ static void main_window_load(Window *window) {
 
   // Create the TextLayer with specific bounds
   s_time_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 100));
+      GRect(0, PBL_IF_ROUND_ELSE(35, 30), bounds.size.w, 100));
   s_date_layer = text_layer_create(
       GRect(0, PBL_IF_ROUND_ELSE(82, 76), bounds.size.w, 100));
   s_weather_layer = text_layer_create(
@@ -148,13 +166,13 @@ static void main_window_load(Window *window) {
   s_forecastweather_layer = text_layer_create(
     GRect(0, PBL_IF_ROUND_ELSE(140, 135), bounds.size.w, 100));
   s_batterynumber_layer = text_layer_create(
-    GRect(0, PBL_IF_ROUND_ELSE(35, 30), bounds.size.w, 100));
+    GRect(0, PBL_IF_ROUND_ELSE(5, 0), bounds.size.w, 100));
 
 //set text characteristics for each text layer
-  basic_text(s_time_layer,FONT_KEY_GOTHIC_28);
-  basic_text(s_date_layer,FONT_KEY_GOTHIC_18);
-  basic_text(s_weather_layer,FONT_KEY_GOTHIC_18);
-  basic_text(s_forecastweather_layer,FONT_KEY_GOTHIC_18);
+  basic_text(s_time_layer,largefont);
+  basic_text(s_date_layer,medfont);
+  basic_text(s_weather_layer,smallfont);
+  basic_text(s_forecastweather_layer,smallfont);
   //test text for weather
   text_layer_set_text(s_weather_layer, "Loading...");
   text_layer_set_text(s_forecastweather_layer, "Loading...");
@@ -166,11 +184,23 @@ static void main_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(s_batterynumber_layer));
 
   // Create battery meter Layer
-s_battery_layer = layer_create(GRect(14, 54, 115, 2));
+s_battery_layer = layer_create(GRect(25, 25, 115, 2));
+  //s_battery_layer = layer_create(GRect(14, 54, 115, 2));
 layer_set_update_proc(s_battery_layer, battery_update_proc);
 
-// Add to Window
+// Add battery meter layer to Window
 layer_add_child(window_get_root_layer(window), s_battery_layer);
+  
+  // Create the Bluetooth icon GBitmap
+s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON);
+
+// Create the BitmapLayer to display the GBitmap
+s_bt_icon_layer = bitmap_layer_create(GRect(59, 0, 30, 30));
+bitmap_layer_set_bitmap(s_bt_icon_layer, s_bt_icon_bitmap);
+layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(s_bt_icon_layer));
+  
+  // Show the correct state of the BT connection from the start
+bluetooth_callback(connection_service_peek_pebble_app_connection());
 }
 
 static void main_window_unload(Window *window) {
@@ -181,6 +211,8 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_forecastweather_layer);
   text_layer_destroy(s_batterynumber_layer);
   layer_destroy(s_battery_layer);
+  gbitmap_destroy(s_bt_icon_bitmap);
+  bitmap_layer_destroy(s_bt_icon_layer);
 }
 
 
@@ -211,6 +243,11 @@ battery_state_service_subscribe(battery_callback);
   update_time();
   // Ensure battery level is displayed from the start
 battery_callback(battery_state_service_peek());
+  
+  // Register for Bluetooth connection updates
+connection_service_subscribe((ConnectionHandlers) {
+  .pebble_app_connection_handler = bluetooth_callback
+});
 }
 
 static void deinit(){
