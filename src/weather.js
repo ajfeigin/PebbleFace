@@ -1,5 +1,5 @@
 var myAPIKey = '772883c4aae75607c2882944e63d570e';
-var temperature,night,conditions,todaymax;
+var temperature,night,conditions,todaymax,tommax;
 var dictionary = {};
 // Listen for when the watchface is opened
 Pebble.addEventListener('ready', 
@@ -32,6 +32,7 @@ var forecastcallback = function(){
 //   console.log("112 night temp is  " + night);
   dictionary.KEY_NIGHTTEMP = night;
   dictionary.KEY_TODAYMAX = todaymax;
+  dictionary.KEY_TOMMAX = tommax;
  // console.log("124 " + dictionary.KEY_NIGHTTEMP);
   // Send to Pebble
 Pebble.sendAppMessage(dictionary,
@@ -82,6 +83,7 @@ function locationSuccess(pos) {
        night = json.list[0].temp.night; 
       //var temperature = Math.round(json.list[0].temp.day); 
       todaymax = Math.round(json.list[0].temp.day); 
+      tommax =  Math.round(json.list[1].temp.day); 
       callback();
       },forecastcallback   
   );

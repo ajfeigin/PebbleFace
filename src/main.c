@@ -7,21 +7,19 @@ enum {
   KEY_TEMPERATURE = 0,
   KEY_CONDITIONS = 1,
   KEY_NIGHTTEMP =2,
-  KEY_TODAYMAX 
+  KEY_TODAYMAX =3,
+  KEY_TOMMAX
 };
 //Create the object for the main window by pointing to it
 static Window *s_main_window;
 // create a text layer
-static TextLayer *s_time_layer;
-static TextLayer *s_date_layer;
-static TextLayer *s_weather_layer;
-static TextLayer *s_forecastweather_layer;
+static TextLayer *s_time_layer, *s_date_layer,*s_weather_layer, *s_forecastweather_layer;
 static TextLayer *s_batterynumber_layer;
 static Layer *s_battery_layer;
 static int s_battery_level;
 static BitmapLayer  *s_bt_icon_layer;
 static GBitmap *s_bt_icon_bitmap;
-static const char *largefont = FONT_KEY_BITHAM_42_LIGHT;
+static const char *largefont = FONT_KEY_LECO_32_BOLD_NUMBERS;
 static const char *medfont = FONT_KEY_GOTHIC_18_BOLD;
 static const char *smallfont = FONT_KEY_GOTHIC_18;
 
@@ -122,6 +120,7 @@ Tuple *temp_tuple = dict_find(iterator, KEY_TEMPERATURE);
 Tuple *conditions_tuple = dict_find(iterator, KEY_CONDITIONS);
 Tuple *night_tuple = dict_find(iterator, KEY_NIGHTTEMP);
 Tuple *max_tuple = dict_find(iterator, KEY_TODAYMAX);
+Tuple *tommax_tuple = dict_find(iterator, KEY_TOMMAX);  
 
   // If all data is available, use it
 if(temp_tuple && conditions_tuple && night_tuple) {
@@ -133,7 +132,7 @@ if(temp_tuple && conditions_tuple && night_tuple) {
   text_layer_set_text(s_weather_layer, weather_layer_buffer);
   
   //prep the night time data
-  snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC","tonight:" ,(int)night_tuple->value->int32);
+  snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC %s %dC","tonight:" ,(int)night_tuple->value->int32, "tom:",(int)tommax_tuple->value->int32);
   text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
   }else {printf("err1");}
 }

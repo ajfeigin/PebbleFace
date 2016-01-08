@@ -3,13 +3,14 @@
         "KEY_CONDITIONS": 1,
         "KEY_NIGHTTEMP": 2,
         "KEY_TEMPERATURE": 0,
-        "KEY_TODAYMAX": 3
+        "KEY_TODAYMAX": 3,
+        "KEY_TOMMAX": 4
     },
     "capabilities": [
         "location"
     ],
     "companyName": "pebble@afeigin.fastmail.fm",
-    "longName": "Watchface 2",
+    "longName": "Simple weather, battery & date watchface",
     "projectType": "native",
     "resources": {
         "media": [
@@ -17,20 +18,19 @@
                 "file": "images/bt-icon.png",
                 "name": "BT_ICON",
                 "targetPlatforms": null,
-                "type": "bitmap"
+                "type": "png"
             }
         ]
     },
     "sdkVersion": "3",
-    "shortName": "Watchface 2",
+    "shortName": "Weather batt",
     "targetPlatforms": [
-        "aplite",
         "basalt",
         "chalk"
     ],
     "uuid": "201bb76d-7f1d-4fb5-b0c8-4f4d01775d74",
     "versionLabel": "1.0",
     "watchapp": {
-        "watchface": false
+        "watchface": true
     }
 }
