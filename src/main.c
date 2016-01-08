@@ -20,7 +20,7 @@ static int s_battery_level;
 static BitmapLayer  *s_bt_icon_layer;
 static GBitmap *s_bt_icon_bitmap;
 static GFont s_time_font;
-static const char *largefont =FONT_KEY_LECO_32_BOLD_NUMBERS;
+//static const char *largefont =FONT_KEY_LECO_32_BOLD_NUMBERS;
 static const char *medfont = FONT_KEY_GOTHIC_18_BOLD;
 static const char *smallfont = FONT_KEY_GOTHIC_18;
 
@@ -43,7 +43,6 @@ static void basic_text_cust(TextLayer *txt, GFont font){
   basic_text_internal(txt);
   text_layer_set_font(txt,font);
 }
-
 
 //call back for getting the battery level
 static void battery_callback(BatteryChargeState state) {
@@ -175,9 +174,9 @@ static void main_window_load(Window *window) {
   static int timeX = 35;
   // Create the TextLayer with specific bounds
   s_time_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(timeX, timeX-5), bounds.size.w, 75));
+      GRect(15, PBL_IF_ROUND_ELSE(timeX, timeX-5), bounds.size.w, 100));
   s_seconds_layer = text_layer_create(
-      GRect(60, PBL_IF_ROUND_ELSE(timeX+5, timeX), bounds.size.w, 75));
+      GRect(50, PBL_IF_ROUND_ELSE(timeX+5, timeX), bounds.size.w, 75));
   s_date_layer = text_layer_create(
       GRect(0, PBL_IF_ROUND_ELSE(82, 76), bounds.size.w, 100));
   s_weather_layer = text_layer_create(
@@ -195,6 +194,8 @@ s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO
 
 //set text characteristics for each text layer
   basic_text_cust(s_time_layer,s_time_font); 
+  //basic text function sets center alignment - for the time try it on the left...
+  text_layer_set_text_alignment(s_time_layer, GTextAlignmentLeft);
   basic_text(s_seconds_layer,medfont);
   basic_text(s_date_layer,medfont);
   basic_text(s_weather_layer,smallfont);
