@@ -21,7 +21,8 @@ static BitmapLayer  *s_bt_icon_layer;
 static GBitmap *s_bt_icon_bitmap;
 static GFont s_time_font;
 //static const char *largefont =FONT_KEY_LECO_32_BOLD_NUMBERS;
-static const char *medfont = FONT_KEY_GOTHIC_18_BOLD;
+static const char *medfont = FONT_KEY_GOTHIC_24_BOLD;
+//static const char *medfont = FONT_KEY_GOTHIC_18_BOLD;
 static const char *smallfont = FONT_KEY_GOTHIC_18;
 
 //Other than setting the font this does all the basic text setup
