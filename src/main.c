@@ -96,7 +96,7 @@ static void update_time() {
   strftime(sec_buffer, sizeof(sec_buffer),"%S", tick_time);
 
   //format the date
-    strftime(sdate_buffer, sizeof(sdate_buffer), "%a  %e-%b-%Y", tick_time);
+    strftime(sdate_buffer, sizeof(sdate_buffer), "%a  %e-%b", tick_time);
   //determine if it's AM or PM
   //char *AMPM = tick_time->tm_hour>11 ? " PM" : " AM";
   // Display this time & date on the TextLayer, include AM or PM if it's not in 24hr time
@@ -174,9 +174,9 @@ static void main_window_load(Window *window) {
   static int timeX = 35;
   // Create the TextLayer with specific bounds
   s_time_layer = text_layer_create(
-      GRect(15, PBL_IF_ROUND_ELSE(timeX, timeX-5), bounds.size.w, 100));
+      GRect(8, PBL_IF_ROUND_ELSE(timeX, timeX-5), bounds.size.w, 100));
   s_seconds_layer = text_layer_create(
-      GRect(50, PBL_IF_ROUND_ELSE(timeX+5, timeX), bounds.size.w, 75));
+      GRect(55, PBL_IF_ROUND_ELSE(timeX+5, timeX), bounds.size.w, 75));
   s_date_layer = text_layer_create(
       GRect(0, PBL_IF_ROUND_ELSE(82, 76), bounds.size.w, 100));
   s_weather_layer = text_layer_create(
@@ -188,7 +188,7 @@ static void main_window_load(Window *window) {
 
   //load custom font(s)
   // Create GFont
-s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_CONDENSED_42));
+s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_CONDENSED_46));
 
 // Apply to TextLayer
 
