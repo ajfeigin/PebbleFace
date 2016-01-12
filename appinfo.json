@@ -2,6 +2,7 @@
     "appKeys": {
         "KEY_CONDITIONS": 1,
         "KEY_NIGHTTEMP": 2,
+        "KEY_SCALE": 5,
         "KEY_TEMPERATURE": 0,
         "KEY_TODAYMAX": 3,
         "KEY_TOMMAX": 4
@@ -9,7 +10,7 @@
     "capabilities": [
         "location"
     ],
-    "companyName": "pebble@afeigin.fastmail.fm",
+    "companyName": "Feigin Consulting",
     "longName": "Simple weather, battery & date watchface",
     "projectType": "native",
     "resources": {
@@ -37,8 +38,7 @@
     "sdkVersion": "3",
     "shortName": "Weather batt",
     "targetPlatforms": [
-        "basalt",
-        "chalk"
+        "basalt"
     ],
     "uuid": "201bb76d-7f1d-4fb5-b0c8-4f4d01775d74",
     "versionLabel": "1.0",

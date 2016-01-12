@@ -20,20 +20,15 @@ Pebble.addEventListener('appmessage',
 // webquery unless the dictionary is set and sent in the webquery callback which prevents getting data
 // from multiple queries
 var currcallback = function(){
- //  console.log("111 temp is  " + temperature);
-  //dictionary.push({
   dictionary.KEY_TEMPERATURE= temperature;
   dictionary.KEY_CONDITIONS= conditions;
-  //});
-//  console.log("123" + dictionary.KEY_CONDITIONS);
 };
 
 var forecastcallback = function(){
-//   console.log("112 night temp is  " + night);
   dictionary.KEY_NIGHTTEMP = night;
   dictionary.KEY_TODAYMAX = todaymax;
   dictionary.KEY_TOMMAX = tommax;
- // console.log("124 " + dictionary.KEY_NIGHTTEMP);
+  dictionary.KEY_SCALE = Math.max(10,10*Math.ceil(Math.max(night,todaymax,tommax)/10));
   // Send to Pebble
 Pebble.sendAppMessage(dictionary,
   function(e) {
@@ -80,7 +75,7 @@ function locationSuccess(pos) {
     function(responseText,callback) {
       // responseText contains a JSON object with weather info
       var json = JSON.parse(responseText);      
-       night = json.list[0].temp.night; 
+       night = Math.round(json.list[0].temp.night); 
       //var temperature = Math.round(json.list[0].temp.day); 
       todaymax = Math.round(json.list[0].temp.day); 
       tommax =  Math.round(json.list[1].temp.day); 
