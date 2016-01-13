@@ -3,8 +3,10 @@
         "KEY_CONDITIONS": 1,
         "KEY_NIGHTTEMP": 2,
         "KEY_SCALE": 5,
+        "KEY_SCALEMIN": 7,
         "KEY_TEMPERATURE": 0,
         "KEY_TODAYMAX": 3,
+        "KEY_TOMCONDITIONS": 6,
         "KEY_TOMMAX": 4
     },
     "capabilities": [

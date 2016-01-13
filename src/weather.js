@@ -29,6 +29,7 @@ var forecastcallback = function(){
   dictionary.KEY_TODAYMAX = todaymax;
   dictionary.KEY_TOMMAX = tommax;
   dictionary.KEY_SCALE = Math.max(10,10*Math.ceil(Math.max(night,todaymax,tommax)/10));
+  dictionary.KEY_SCALEMIN = Math.min(0,10*Math.floor(Math.min(night,todaymax,tommax)/10));
   // Send to Pebble
 Pebble.sendAppMessage(dictionary,
   function(e) {

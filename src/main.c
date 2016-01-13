@@ -9,7 +9,9 @@ enum {
   KEY_NIGHTTEMP =2,
   KEY_TODAYMAX =3,
   KEY_TOMMAX = 4,
-  KEY_SCALE
+  KEY_SCALE = 5,
+  KEY_TOMCONDITIONS=6,
+  KEY_SCALEMIN 
 };
 //Create the object for the main window by pointing to it
 static Window *s_main_window;
@@ -109,6 +111,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   
   // Get weather update every 30 minutes
   if(tick_time->tm_min % 30 == 0) {
+  //if(tick_time->tm_sec % 30 == 0) {
     // Begin dictionary
     DictionaryIterator *iter;
     app_message_outbox_begin(&iter);
@@ -122,7 +125,6 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 //DRAWING code derived from https://developer.getpebble.com/docs/c/Graphics/Drawing_Paths/
 static GPath *s_my_path_ptr = NULL;
-
 GPathInfo BOLT_PATH_INFO = {
   .num_points = 13,
   //tmp Y points that get over written when the weather is set
@@ -144,22 +146,23 @@ uint32_t inbtw_pt(double bigpiece, double smallpiece, double step){
   return bigpiece*step+smallpiece*(1-step);
 }
 //set the points for the weather graph based on the latest weather
-void setweatherpts(int curr, int maxtoday, int night, int tom, int scale){
+void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int scalemin){
   //temp location for new points
   GPoint pts[BOLT_PATH_INFO.num_points];
-  printf("in wthr pts");
+//   printf("in wthr pts");
   // set the tmp to be the same as the current pts
   for(uint32_t i=0;i<BOLT_PATH_INFO.num_points;i++){
     pts[i].x= BOLT_PATH_INFO.points[i].x;
     pts[i].y= BOLT_PATH_INFO.points[i].y;
   }
   //update the y values of the points based on the passed in temperatures
-  double maxtemp = (double) scale;
-  double start = weatherheight * gt_one_lt_zero(1-(maxtoday+night)/(2*maxtemp)); //TODO MAKE SURE TEMPS ARE >0 (the <max temp should be covered by how max temp is set)
-  double todmpt = weatherheight * gt_one_lt_zero(1-(maxtoday/maxtemp));
-  double nightpt = weatherheight * gt_one_lt_zero(1-(night/maxtemp));
-  double tompt = weatherheight * gt_one_lt_zero(1-(tom/maxtemp));
-  double end = weatherheight * gt_one_lt_zero(1-(tom+night)/(2*maxtemp));
+//   double maxtemp = (double) scalemax;
+  double range = (double)(scalemax-scalemin);//TODO USE THIS TO ALLOW -ve temps on the chart
+  double start = weatherheight * gt_one_lt_zero(1-(maxtoday+night-2*scalemin)/(2*range)); //TODO MAKE SURE TEMPS ARE >0 (the <max temp should be covered by how max temp is set)
+  double todmpt = weatherheight * gt_one_lt_zero(1-((maxtoday-scalemin)/range));
+  double nightpt = weatherheight * gt_one_lt_zero(1-((night-scalemin)/range));
+  double tompt = weatherheight * gt_one_lt_zero(1-((tom-scalemin)/range));
+  double end = weatherheight * gt_one_lt_zero(1-(tom+night-2*scalemin)/(2*range));
   double steppct = 0.88;
   //start with the end and main (ie where an actual temp occurs) points
   pts[0].y = (uint32_t) start; // left end of the chart, halfway b/w today's max and night temp
@@ -196,6 +199,7 @@ void weather_layer_update_proc(Layer *my_layer, GContext *ctx) {
 //   printf("act pts %d y =  %d pts 9 y = %d, pts 12 =%d", 3,(int)(BOLT_PATH_INFO.points[3].y),(int)BOLT_PATH_INFO.points[9].y,(int)BOLT_PATH_INFO.points[12].y);
   graphics_context_set_stroke_color(ctx, GColorWhite);
   graphics_context_set_stroke_width(ctx, 2);
+//   printf("drawing");
   gpath_draw_outline_open(ctx, s_my_path_ptr);
 }
 
@@ -214,7 +218,8 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   Tuple *night_tuple = dict_find(iterator, KEY_NIGHTTEMP);
   Tuple *max_tuple = dict_find(iterator, KEY_TODAYMAX);
   Tuple *tommax_tuple = dict_find(iterator, KEY_TOMMAX);  
-  Tuple *scale_tuple = dict_find(iterator, KEY_SCALE); 
+  Tuple *scalemax_tuple = dict_find(iterator, KEY_SCALE); 
+  Tuple *scalemin_tuple = dict_find(iterator, KEY_SCALEMIN); 
 
   // If all data is available, use it
   if(temp_tuple && conditions_tuple && night_tuple) {
@@ -235,8 +240,8 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     //snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC %s %dC","tonight:" ,tonighttemp, "tom:",tomtemp);
     snprintf(nightfull_buffer, sizeof(nightfull_buffer), "tonight: %dC", tonighttemp);
     text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
-    printf("about to set wthr pts");
-    setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scale_tuple->value->int32);
+//     printf("about to set wthr pts");
+    setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scalemax_tuple->value->int32 , scalemin_tuple->value->int32); //take the difference b/w the top and bottom value the chart will show to get it's Y-range
     layer_mark_dirty(s_draw_layer);
   }else {printf("err1");}
 }
@@ -362,7 +367,8 @@ static void init() {
   app_message_register_outbox_failed(outbox_failed_callback);
   app_message_register_outbox_sent(outbox_sent_callback);
   // Open AppMessage
-  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  //  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  app_message_open(500, 500);
   
   // Show the Window on the watch, with animated=true
   window_stack_push(s_main_window, true);
