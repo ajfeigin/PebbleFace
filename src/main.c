@@ -190,17 +190,17 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
 
 // .update_proc of my_layer:
 void weather_layer_update_proc(Layer *my_layer, GContext *ctx) {
-  setup_my_path();
-  // Fill the path:
-  graphics_context_set_fill_color(ctx, GColorWhite);
-//   gpath_draw_filled(ctx, s_my_path_ptr);
-  // Stroke the path:
-//     static char batt_buffer[60];
-//   printf("act pts %d y =  %d pts 9 y = %d, pts 12 =%d", 3,(int)(BOLT_PATH_INFO.points[3].y),(int)BOLT_PATH_INFO.points[9].y,(int)BOLT_PATH_INFO.points[12].y);
-  graphics_context_set_stroke_color(ctx, GColorWhite);
-  graphics_context_set_stroke_width(ctx, 2);
-//   printf("drawing");
-  gpath_draw_outline_open(ctx, s_my_path_ptr);
+    setup_my_path();
+    // Fill the path:
+    graphics_context_set_fill_color(ctx, GColorWhite);
+  //   gpath_draw_filled(ctx, s_my_path_ptr);
+    // Stroke the path:
+  //     static char batt_buffer[60];
+  //   printf("act pts %d y =  %d pts 9 y = %d, pts 12 =%d", 3,(int)(BOLT_PATH_INFO.points[3].y),(int)BOLT_PATH_INFO.points[9].y,(int)BOLT_PATH_INFO.points[12].y);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_context_set_stroke_width(ctx, 2);
+    printf("drawing");
+    gpath_draw_outline_open(ctx, s_my_path_ptr);
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
@@ -241,7 +241,8 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     snprintf(nightfull_buffer, sizeof(nightfull_buffer), "tonight: %dC", tonighttemp);
     text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
 //     printf("about to set wthr pts");
-    setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scalemax_tuple->value->int32 , scalemin_tuple->value->int32); //take the difference b/w the top and bottom value the chart will show to get it's Y-range
+    setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scalemax_tuple->value->int32 , scalemin_tuple->value->int32); 
+    printf("marking dirty");
     layer_mark_dirty(s_draw_layer);
   }else {printf("err1");}
 }
@@ -347,6 +348,9 @@ static void main_window_unload(Window *window) {
   bitmap_layer_destroy(s_bt_icon_layer);
   gbitmap_destroy(s_weather_img_bitmap);
   bitmap_layer_destroy(s_weather_img_layer);
+    tick_timer_service_unsubscribe();
+  battery_state_service_unsubscribe();
+  bluetooth_connection_service_unsubscribe();
 }
 static void init() {
   // Register for battery level updates
