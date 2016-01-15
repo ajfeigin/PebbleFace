@@ -18,15 +18,16 @@ static Window *s_main_window;
 // create the require layers and other variables used throughout
 static TextLayer *s_time_layer, *s_date_layer,*s_todayweather_layer,*s_weather_layer, *s_forecastweather_layer, *s_seconds_layer;
 static TextLayer *s_batterynumber_layer;
-static Layer *s_battery_layer, *s_draw_layer;
+static Layer *s_battery_layer, *s_draw_layer, *s_hands_layer;
 static int s_battery_level;
-static int weatherheight = 40;
+static int weatherheight = 35, hour_hand_length = 40,minute_hand_length = 60, currhour, currminute;
 static BitmapLayer  *s_bt_icon_layer,*s_weather_img_layer;
 static GBitmap *s_bt_icon_bitmap, *s_weather_img_bitmap;
 static GFont s_time_font;
 //static const char *largefont =FONT_KEY_LECO_32_BOLD_NUMBERS;
 static const char *medfont = FONT_KEY_GOTHIC_24_BOLD;
 static const char *smallfont = FONT_KEY_GOTHIC_18;
+static GPoint s_center;
 
 //Other than setting the font this does all the basic text setup
 static void basic_text_internal(TextLayer *txt, bool left){
@@ -106,6 +107,10 @@ static void update_time() {
   text_layer_set_text(s_time_layer,time_buffer);
   text_layer_set_text(s_seconds_layer,sec_buffer);
   text_layer_set_text(s_date_layer, sdate_buffer);  
+  
+  currhour = tick_time->tm_hour;
+  currminute = tick_time->tm_min;
+//   draw_hour_hand(tick_time);
 }
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
@@ -131,12 +136,33 @@ GPathInfo BOLT_PATH_INFO = {
   //tmp Y points that get over written when the weather is set
   .points = (GPoint[]){{0,15},{7,13},{16,6},{23,5},{30,8},{60,27},{70,30},{80,28},{110,15},{117,14},{124,14},{133,15},{140,16}}
 };
-
-void setup_my_path(void) {
+//use this method if more needs to be done to the path than just set the pointer (which is now being done in the setup methods)
+// void setup_my_path(void) {
 //   printf("about to set pointer %d",(int)heap_bytes_used());
-//    s_my_path_ptr = NULL;
-  s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
+//   s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
 //   printf("pointer set %d",(int)heap_bytes_used());
+// }
+//Sets the analogue time hands
+void update_analogue_time(Layer *my_layer, GContext *ctx){
+      // Stroke the path:
+    graphics_context_set_stroke_color(ctx, GColorYellow);
+    graphics_context_set_stroke_width(ctx, 4);
+  int hr = currhour;
+  if(currhour>12) hr =currhour-12;
+  int32_t hrangle = TRIG_MAX_ANGLE * (hr*60+currminute) /720; //use minutes and hours to angle the hour hand
+  GPoint hour_hand = (GPoint){
+    .x = (int)(s_center.x + hour_hand_length * sin_lookup(hrangle)/TRIG_MAX_RATIO),
+    .y =  (int)(s_center.y - hour_hand_length * cos_lookup(hrangle)/TRIG_MAX_RATIO)
+  };
+//     printf("drawing memory used %d",(int)heap_bytes_used());
+   graphics_draw_line(ctx, s_center, hour_hand);  
+  int32_t minangle = TRIG_MAX_ANGLE * (currminute) /60;
+  GPoint min_hand = (GPoint){
+    .x = (int)(s_center.x + minute_hand_length * sin_lookup(minangle)/TRIG_MAX_RATIO),
+    .y =  (int)(s_center.y - minute_hand_length * cos_lookup(minangle)/TRIG_MAX_RATIO)
+  };
+ graphics_context_set_stroke_color(ctx, GColorChromeYellow);
+ graphics_draw_line(ctx, s_center, min_hand);   
 }
 //If the provider double is greater than 1 return 1, if less than 0 return 0 other return the double
 double gt_one_lt_zero(double tocheck){
@@ -194,10 +220,6 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
 
 // .update_proc of my_layer:
 void weather_layer_update_proc(Layer *my_layer, GContext *ctx) {
-//     setup_my_path();
-  // Fill the path:
-//     graphics_context_set_fill_color(ctx, GColorWhite);
-  //   gpath_draw_filled(ctx, s_my_path_ptr);
     // Stroke the path:
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_context_set_stroke_width(ctx, 2);
@@ -281,6 +303,8 @@ static void poistion_items(GRect bounds){
   s_draw_layer = layer_create(GRect(0,weatherchartY,140,weatherheight+1));
   // Create the BitmapLayer to display the GBitmap
   s_bt_icon_layer = bitmap_layer_create(GRect(120, PBL_IF_ROUND_ELSE(65,60), 15, 15));
+  //create the analogue time layer
+  s_hands_layer = layer_create(GRect(0,0,140,160));
 }
 
 static void main_window_load(Window *window) {
@@ -320,10 +344,16 @@ static void main_window_load(Window *window) {
   // Add battery meter layer to Window
   layer_add_child(window_get_root_layer(window), s_battery_layer);
 
-  //Add the test drawing layer
+  //Add the weather chart drawing layer
   layer_set_update_proc(s_draw_layer,weather_layer_update_proc);
   layer_add_child(window_layer,s_draw_layer);
-    
+  //analogue partly derived from https://github.com/pebble-examples/ks-clock-face/blob/master/src/ks-clock-face.c
+  GRect window_bounds = layer_get_bounds(window_layer);
+  s_center = grect_center_point(&window_bounds);
+  //add the hour hand layer
+  layer_set_update_proc(s_hands_layer,update_analogue_time);
+  layer_add_child(window_layer,s_hands_layer);
+
   // Create the Bluetooth icon GBitmap
   s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON_SMALL);
   bitmap_layer_set_bitmap(s_bt_icon_layer, s_bt_icon_bitmap);
@@ -346,6 +376,7 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_batterynumber_layer);
   layer_destroy(s_battery_layer);
   layer_destroy(s_draw_layer);
+  layer_destroy(s_hands_layer);  
   gbitmap_destroy(s_bt_icon_bitmap);
   bitmap_layer_destroy(s_bt_icon_layer);
   gbitmap_destroy(s_weather_img_bitmap);
@@ -387,7 +418,7 @@ static void init() {
 connection_service_subscribe((ConnectionHandlers) {
   .pebble_app_connection_handler = bluetooth_callback
 });
-  setup_my_path();
+  s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
 }
 static void deinit(){
     // Destroy Window
