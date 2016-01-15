@@ -50,6 +50,13 @@ static void basic_text_cust(TextLayer *txt, GFont font, bool left){
 static void battery_callback(BatteryChargeState state) {
   // Record the new battery level
   s_battery_level = state.charge_percent;
+    //prepare the text version of the battery
+  static char batt_buffer[20];
+  if(state.is_charging){snprintf(batt_buffer, 20, "battery charging");}
+  else{  snprintf(batt_buffer, 20, "battery %d%%", s_battery_level);}  
+  basic_text(s_batterynumber_layer,smallfont,false);
+  text_layer_set_text(s_batterynumber_layer, batt_buffer);
+  
   // Update meter
   layer_mark_dirty(s_battery_layer);
 }
@@ -67,12 +74,6 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   // Draw the bar
   graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
-
-  //prepare the text version
-  static char batt_buffer[20];
-  snprintf(batt_buffer, 20, "battery %d%%", s_battery_level);
-  basic_text(s_batterynumber_layer,smallfont,false);
-  text_layer_set_text(s_batterynumber_layer, batt_buffer);
 }
 static void bluetooth_callback(bool connected) {
   // Show icon if disconnected
@@ -132,7 +133,10 @@ GPathInfo BOLT_PATH_INFO = {
 };
 
 void setup_my_path(void) {
+//   printf("about to set pointer %d",(int)heap_bytes_used());
+//    s_my_path_ptr = NULL;
   s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
+//   printf("pointer set %d",(int)heap_bytes_used());
 }
 //If the provider double is greater than 1 return 1, if less than 0 return 0 other return the double
 double gt_one_lt_zero(double tocheck){
@@ -190,16 +194,14 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
 
 // .update_proc of my_layer:
 void weather_layer_update_proc(Layer *my_layer, GContext *ctx) {
-    setup_my_path();
-    // Fill the path:
-    graphics_context_set_fill_color(ctx, GColorWhite);
+//     setup_my_path();
+  // Fill the path:
+//     graphics_context_set_fill_color(ctx, GColorWhite);
   //   gpath_draw_filled(ctx, s_my_path_ptr);
     // Stroke the path:
-  //     static char batt_buffer[60];
-  //   printf("act pts %d y =  %d pts 9 y = %d, pts 12 =%d", 3,(int)(BOLT_PATH_INFO.points[3].y),(int)BOLT_PATH_INFO.points[9].y,(int)BOLT_PATH_INFO.points[12].y);
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_context_set_stroke_width(ctx, 2);
-    printf("drawing");
+//     printf("drawing memory used %d",(int)heap_bytes_used());
     gpath_draw_outline_open(ctx, s_my_path_ptr);
 }
 
@@ -385,6 +387,7 @@ static void init() {
 connection_service_subscribe((ConnectionHandlers) {
   .pebble_app_connection_handler = bluetooth_callback
 });
+  setup_my_path();
 }
 static void deinit(){
     // Destroy Window
