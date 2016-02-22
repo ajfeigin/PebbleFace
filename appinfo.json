@@ -1,10 +1,13 @@
 {
     "appKeys": {
+        "KEY_ARRLEN": 9,
         "KEY_CONDITIONS": 1,
         "KEY_NIGHTTEMP": 2,
         "KEY_SCALE": 5,
         "KEY_SCALEMIN": 7,
+        "KEY_TEMPARR": 8,
         "KEY_TEMPERATURE": 0,
+        "KEY_TEMPOFFSET": 10,
         "KEY_TODAYMAX": 3,
         "KEY_TOMCONDITIONS": 6,
         "KEY_TOMMAX": 4
@@ -13,6 +16,7 @@
         "location"
     ],
     "companyName": "Feigin Consulting",
+    "enableMultiJS": false,
     "longName": "Simple weather, battery & date watchface",
     "projectType": "native",
     "resources": {

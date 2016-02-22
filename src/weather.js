@@ -1,6 +1,7 @@
-var myAPIKey = '772883c4aae75607c2882944e63d570e';
-var temperature,night,conditions,todaymax,tommax;
+var myAPIKey = '772883c4aae75607c2882944e63d570e'; //key for using openweather api
+var temperature,night,conditions,todaymax,tommax,forecastarr=[];
 var dictionary = {};
+var offset = 50; //offset temps by 50 to ensure they're >0 and so can go in a byte array, this is passed back to the C code as KEY_TEMPOFFSET
 // Listen for when the watchface is opened
 Pebble.addEventListener('ready', 
   function(e) {
@@ -23,7 +24,11 @@ var currcallback = function(){
   dictionary.KEY_TEMPERATURE= temperature;
   dictionary.KEY_CONDITIONS= conditions;
 };
-
+var forecast3hrcallback = function(){
+  dictionary.KEY_TEMPARR = forecastarr;
+  dictionary.KEY_ARRLEN = forecastarr.length;
+  dictionary.KEY_TEMPOFFSET = offset;
+};
 var forecastcallback = function(){
   dictionary.KEY_NIGHTTEMP = night;
   dictionary.KEY_TODAYMAX = todaymax;
@@ -31,14 +36,10 @@ var forecastcallback = function(){
   dictionary.KEY_SCALE = Math.max(10,10*Math.ceil(Math.max(night,todaymax,tommax)/10));
   dictionary.KEY_SCALEMIN = Math.min(0,10*Math.floor(Math.min(night,todaymax,tommax)/10));
   // Send to Pebble
-Pebble.sendAppMessage(dictionary,
-  function(e) {
-    console.log('Weather info sent to Pebble successfully!');
-  },
-  function(e) {
-    console.log('Error sending weather info to Pebble!');
-  }
-);
+  Pebble.sendAppMessage(dictionary,
+  function(e) {    console.log('Weather info sent to Pebble successfully!');  },
+  function(e) {    console.log('Error sending weather info to Pebble!');  }
+  );
 };
 
 var xhrRequest = function (url, type, callback,weathercallback) {
@@ -55,23 +56,42 @@ function locationSuccess(pos) {
   var urlcurr = 'http://api.openweathermap.org/data/2.5/weather?lat=' +
   pos.coords.latitude + '&lon=' + pos.coords.longitude + '&units=metric&appid=' + myAPIKey;
   // This requests forecast weather for the next 2 days in metric (celcius, default is kelvin)
- var url = 'http://api.openweathermap.org/data/2.5/forecast/daily?units=metric&lat=' +
+  var url = 'http://api.openweathermap.org/data/2.5/forecast/daily?units=metric&lat=' +
   pos.coords.latitude + '&lon=' + pos.coords.longitude + '&appid=' + myAPIKey+'&cnt=2';
- // console.log(pos.coords.latitude +"   "+ pos.coords.longitude );
+  var url3hr = 'http://api.openweathermap.org/data/2.5/forecast?units=metric&lat=' +
+  pos.coords.latitude + '&lon=' + pos.coords.longitude + '&appid=' + myAPIKey+'&cnt=15';
+ //Tests to get Melb values
+  // url3hr = 'http://api.openweathermap.org/data/2.5/forecast?units=metric&lat=-37.9072127&lon=145.0418663&appid=' + myAPIKey+'&cnt=15';
+  // urlcurr = 'http://api.openweathermap.org/data/2.5/weather?units=metric&lat=-37.9072127&lon=145.0418663&appid=' + myAPIKey+'&cnt=15';
+ // url = 'http://api.openweathermap.org/data/2.5/forecast/daily?units=metric&lat=-37.9072127&lon=145.0418663&appid=' + myAPIKey+'&cnt=15';
+
+//  console.log(pos.coords.latitude +"   "+ pos.coords.longitude );
    // Send request to OpenWeatherMap
   
   xhrRequest(urlcurr, 'GET', 
     function(responseText,callback) {
+//         console.log("1");
+
       // responseText contains a JSON object with weather info
       var json = JSON.parse(responseText);      
        temperature = Math.round(json.main.temp);
-//      console.log('Temperature is ' + temperature);
-
       // Conditions
       conditions = json.weather[0].main;  //TMP??
       callback();
       }, currcallback
-  );
+            );
+      xhrRequest(url3hr, 'GET', 
+    function(responseText,callback) {
+      // responseText contains a JSON object with weather info
+      var json = JSON.parse(responseText);
+      for (var i =0; i<json.list.length ; i++){
+       var t = Math.round(json.list[i].main.temp)+offset; //temperature offset by 50 to ensure that values are >0 (and <255) as required by byte array
+        forecastarr[i] = t;
+//         console.log(t);
+      }
+      callback();
+      },forecast3hrcallback   
+  );console.log("2");
   xhrRequest(url, 'GET', 
     function(responseText,callback) {
       // responseText contains a JSON object with weather info
@@ -84,11 +104,10 @@ function locationSuccess(pos) {
       },forecastcallback   
   );
 }
-
 function locationError(err) {
   console.log('Error requesting location!');
 }
-
+//get location used to get the weather
 function getWeather() {
   navigator.geolocation.getCurrentPosition(
     locationSuccess,

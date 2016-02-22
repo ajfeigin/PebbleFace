@@ -2,7 +2,7 @@
 //keys for dictionary in data passing b/w phone & watch
 //#define KEY_TEMPERATURE 0
 //#define KEY_CONDITIONS 1
-//alternate to #define, better when there are lots of entries
+//alternate to #define, better when there are lots of entries, also need to put these items in the code/project settings page in cloudpebble
 enum {
   KEY_TEMPERATURE = 0,
   KEY_CONDITIONS = 1,
@@ -11,7 +11,10 @@ enum {
   KEY_TOMMAX = 4,
   KEY_SCALE = 5,
   KEY_TOMCONDITIONS=6,
-  KEY_SCALEMIN 
+  KEY_SCALEMIN =7 ,
+  KEY_TEMPARR =8,
+  KEY_ARRLEN = 9,
+  KEY_TEMPOFFSET
 };
 //Create the object for the main window by pointing to it
 static Window *s_main_window;
@@ -20,7 +23,7 @@ static TextLayer *s_time_layer, *s_date_layer,*s_todayweather_layer,*s_weather_l
 static TextLayer *s_batterynumber_layer;
 static Layer *s_battery_layer, *s_draw_layer, *s_hands_layer;
 static int s_battery_level;
-static int weatherheight = 35, hour_hand_length = 40,minute_hand_length = 60, currhour, currminute;
+static int weatherheight = 35, weatherwidth=140, hour_hand_length = 40,minute_hand_length = 60, currhour, currminute, numforecastpts =15;// 15;
 static BitmapLayer  *s_bt_icon_layer,*s_weather_img_layer;
 static GBitmap *s_bt_icon_bitmap, *s_weather_img_bitmap;
 static GFont s_time_font;
@@ -28,6 +31,7 @@ static GFont s_time_font;
 static const char *medfont = FONT_KEY_GOTHIC_24_BOLD;
 static const char *smallfont = FONT_KEY_GOTHIC_18;
 static GPoint s_center;
+static const bool use3day = true;
 
 //Other than setting the font this does all the basic text setup
 static void basic_text_internal(TextLayer *txt, bool left){
@@ -88,7 +92,9 @@ static void update_time() {
   // Get a tm structure
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
-
+  currhour = tick_time->tm_hour;
+  currminute = tick_time->tm_min;
+//   draw_hour_hand(tick_time);  
   // Write the current hours and minutes into a buffer
   static char time_buffer[20];
   static char sec_buffer[20];
@@ -108,9 +114,7 @@ static void update_time() {
   text_layer_set_text(s_seconds_layer,sec_buffer);
   text_layer_set_text(s_date_layer, sdate_buffer);  
   
-  currhour = tick_time->tm_hour;
-  currminute = tick_time->tm_min;
-//   draw_hour_hand(tick_time);
+  
 }
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
@@ -132,16 +136,11 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 //DRAWING code derived from https://developer.getpebble.com/docs/c/Graphics/Drawing_Paths/
 static GPath *s_my_path_ptr = NULL;
 GPathInfo BOLT_PATH_INFO = {
-  .num_points = 13,
-  //tmp Y points that get over written when the weather is set
-  .points = (GPoint[]){{0,15},{7,13},{16,6},{23,5},{30,8},{60,27},{70,30},{80,28},{110,15},{117,14},{124,14},{133,15},{140,16}}
+  .num_points = 15,
+//   //tmp Y points that get over written when the weather is set with 2 duplicates near the end to all the extra points needed for 3day data
+  .points = (GPoint[]){{0,15},{7,13},{16,6},{23,5},{30,8},{60,27},{70,30},{80,28},{110,15},{117,14},{124,14},{133,15},{133,15},{133,15},{140,16}}
 };
-//use this method if more needs to be done to the path than just set the pointer (which is now being done in the setup methods)
-// void setup_my_path(void) {
-//   printf("about to set pointer %d",(int)heap_bytes_used());
-//   s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
-//   printf("pointer set %d",(int)heap_bytes_used());
-// }
+
 //Sets the analogue time hands
 void update_analogue_time(Layer *my_layer, GContext *ctx){
       // Stroke the path:
@@ -175,20 +174,18 @@ double gt_one_lt_zero(double tocheck){
 uint32_t inbtw_pt(double bigpiece, double smallpiece, double step){
   return bigpiece*step+smallpiece*(1-step);
 }
-//set the points for the weather graph based on the latest weather
+//set the points for the weather graph based on the latest weather from the DAILY forecasts
 void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int scalemin){
   //temp location for new points
   GPoint pts[BOLT_PATH_INFO.num_points];
-//   printf("in wthr pts");
   // set the tmp to be the same as the current pts
   for(uint32_t i=0;i<BOLT_PATH_INFO.num_points;i++){
     pts[i].x= BOLT_PATH_INFO.points[i].x;
     pts[i].y= BOLT_PATH_INFO.points[i].y;
   }
   //update the y values of the points based on the passed in temperatures
-//   double maxtemp = (double) scalemax;
   double range = (double)(scalemax-scalemin);//TODO USE THIS TO ALLOW -ve temps on the chart
-  double start = weatherheight * gt_one_lt_zero(1-(maxtoday+night-2*scalemin)/(2*range)); //TODO MAKE SURE TEMPS ARE >0 (the <max temp should be covered by how max temp is set)
+  double start = weatherheight * gt_one_lt_zero(1-(maxtoday+night-2*scalemin)/(2*range)); 
   double todmpt = weatherheight * gt_one_lt_zero(1-((maxtoday-scalemin)/range));
   double nightpt = weatherheight * gt_one_lt_zero(1-((night-scalemin)/range));
   double tompt = weatherheight * gt_one_lt_zero(1-((tom-scalemin)/range));
@@ -199,7 +196,7 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
   pts[3].y = (uint32_t) todmpt; // peak for today's max temp
   pts[6].y = (uint32_t) nightpt; // night temp
   pts[9].y = (uint32_t) tompt; // tomorrow's max
-  pts[12].y =(uint32_t) end; //right end of the chart
+  pts[14].y =(uint32_t) end; //right end of the chart
   //now the intermediate points that step from one of the main pts to the next, with a linear piece in between
   pts[1].y = inbtw_pt(start,todmpt,steppct);
   pts[2].y = inbtw_pt(todmpt,start,steppct);
@@ -209,6 +206,8 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
   pts[8].y = inbtw_pt(tompt,nightpt,steppct);
   pts[10].y = inbtw_pt(tompt,end,steppct);
   pts[11].y = inbtw_pt(end,tompt,steppct);
+  pts[12].y = inbtw_pt(end,tompt,steppct);//duplicates to fill out additional points that are there for when 3 day weather is used
+  pts[13].y = inbtw_pt(end,tompt,steppct);//duplicates to fill out additional points that are there for when 3 day weather is used
   
   for(uint32_t i=0;i<BOLT_PATH_INFO.num_points;i++){
     BOLT_PATH_INFO.points[i].x= pts[i].x;
@@ -217,24 +216,46 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
 //   printf("act123 pts %d y =  %d pts 9 y = %d, pts 12 =%d", 3,(int)(BOLT_PATH_INFO.points[3].y),(int)BOLT_PATH_INFO.points[9].y,(int)BOLT_PATH_INFO.points[12].y);
 //   printf( "act123 pts %d y =  %d pts 8 y = %d, pts 0 =%d", 4,(int)(BOLT_PATH_INFO.points[4].y),(int)BOLT_PATH_INFO.points[8].y,(int)BOLT_PATH_INFO.points[0].y);
 }
-
+//set the weather chart points based on the 3hourly forecasts
+void setweatherptsfrom3hr(uint8_t* temps,int offset, int length, int max, int min){
+  double range =(double) max-min;
+  int ptseparation =  (int)(weatherwidth/(numforecastpts-1)) ;//step between points on the new chart
+  GPoint pts[BOLT_PATH_INFO.num_points];
+//   printf("int pts %d ",(int)(BOLT_PATH_INFO.num_points));
+    for(uint32_t i=0;i<BOLT_PATH_INFO.num_points;i++){
+      pts[i].x =  ptseparation*i;
+      pts[i].y = weatherheight *gt_one_lt_zero(1-(temps[i]-offset-min)/range);
+//       printf("i = %d, x=%d, y=%d, min=%d, max=%d, temp=%d, ptsep=%d, chartw=%d",(int)i,(int)(pts[i].x),(int)(pts[i].y),min,max,(int)temps[i],ptseparation,weatherwidth);
+    }
+//     printf("abc %d",(int)BOLT_PATH_INFO.num_points);
+  for(uint32_t i=0;i<(uint32_t)numforecastpts;i++){
+//     printf("numpts %d, static pts = %d, i=%d",(int)BOLT_PATH_INFO.num_points,numforecastpts,(int)i);
+    BOLT_PATH_INFO.points[i].x= pts[i].x;
+    BOLT_PATH_INFO.points[i].y= pts[i].y;
+  }
+}
 // .update_proc of my_layer:
 void weather_layer_update_proc(Layer *my_layer, GContext *ctx) {
     // Stroke the path:
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_context_set_stroke_width(ctx, 2);
-//     printf("drawing memory used %d",(int)heap_bytes_used());
+//      printf("drawing memory used %d",(int)heap_bytes_used());
     gpath_draw_outline_open(ctx, s_my_path_ptr);
+}
+//return the max of 2 integers
+int intmax(int a, int b){
+  int res;
+  res = a>b ? a : b ;
+  return res;
+}
+//return the minimum of 2 integers
+int intmin(int a,int b){
+  return -intmax(-a,-b);
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // Store incoming weather info from JS
-  static char temperature_buffer[8];
-  static char maxtemperature_buffer[8];
-  static char conditions_buffer[32];
-  static char weather_layer_buffer[50];
-  static char weathertoday_layer_buffer[50];
-  static char nightfull_buffer[50];
+  static char temperature_buffer[8],   maxtemperature_buffer[8], conditions_buffer[32], weather_layer_buffer[50], weathertoday_layer_buffer[50], nightfull_buffer[50];
 
   // Read tuples for data
   Tuple *temp_tuple = dict_find(iterator, KEY_TEMPERATURE);
@@ -244,13 +265,40 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   Tuple *tommax_tuple = dict_find(iterator, KEY_TOMMAX);  
   Tuple *scalemax_tuple = dict_find(iterator, KEY_SCALE); 
   Tuple *scalemin_tuple = dict_find(iterator, KEY_SCALEMIN); 
-
-  // If all data is available, use it
+  Tuple *forecastarr = dict_find(iterator,KEY_TEMPARR);
+  Tuple *arrlen = dict_find(iterator, KEY_ARRLEN);
+  Tuple *tempoffset = dict_find(iterator,KEY_TEMPOFFSET);
+  int offset= tempoffset->value->int32;
+  static uint8_t *forecast3hrs;
+  forecast3hrs= forecastarr->value->data;
+  //how many steps of 3 hours left today prior to midnight (e.g. if it's currently 5am get 7 ) rounded up if it's not a whole number. Adding 0.7 does the rounding b/c the number goes in 1/3s
+  int hrstoday = (int)((24.0-currhour)/3+0.7); 
+  int fcastmaxtoday = -100; // starting value
+  //find the maximum temp for the remainder of today, then tomorrow and the overnight min
+  for (int i=0;i<hrstoday;i++){
+    int t = forecast3hrs[i]-offset;
+    fcastmaxtoday = intmax(t, fcastmaxtoday );
+  }
+  int fcastmaxtom = -100;
+  int tomsteps = intmin(numforecastpts,hrstoday+8);
+  for (int i=hrstoday ; i < tomsteps ; i++){ //starting from ~midnight and go through the rest of the data imported
+    int t = forecast3hrs[i]-offset;
+    fcastmaxtom = intmax(t,fcastmaxtom);
+  }
+  int fcastmin = 100;
+  for (int i=hrstoday -1; i <hrstoday +3 ; i++){ //starting from around 9pm and go through another 12 hrs
+    if(i>-1){
+      int t = forecast3hrs[i]-offset;
+      fcastmin =intmin( t, fcastmin);
+  }  }
+//   printf("3hr blocks:%d, tmax: %d, min: %d, tom: %d",hrstoday,fcastmaxtoday,fcastmin,fcastmaxtom);
+ // If all data is available, use it -- not actually checking all the data anymore (lazy)
   if(temp_tuple && conditions_tuple && night_tuple) {
     int currtemp = (int)temp_tuple->value->int32;
-    int maxtodaytemp = (int)max_tuple->value->int32;
-    int tonighttemp = (int)night_tuple->value->int32;
-    int tomtemp = (int)tommax_tuple->value->int32;
+    int maxtodaytemp = intmax(fcastmaxtoday,(int)max_tuple->value->int32);
+    maxtodaytemp = intmax(maxtodaytemp,currtemp);
+    int tonighttemp = intmin(fcastmin,(int)night_tuple->value->int32);
+    int tomtemp = intmax(fcastmaxtom,(int)tommax_tuple->value->int32);
     snprintf(temperature_buffer, sizeof(temperature_buffer), "%dC", currtemp);
     snprintf(maxtemperature_buffer, sizeof(maxtemperature_buffer), "%dC", maxtodaytemp);
     snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", conditions_tuple->value->cstring);
@@ -261,12 +309,12 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     snprintf(weathertoday_layer_buffer,sizeof(weather_layer_buffer),"Now: %dC %s",currtemp,conditions_buffer);
     text_layer_set_text(s_todayweather_layer, weathertoday_layer_buffer);
     //prep the night time data
-    //snprintf(nightfull_buffer, sizeof(nightfull_buffer), "%s %dC %s %dC","tonight:" ,tonighttemp, "tom:",tomtemp);
     snprintf(nightfull_buffer, sizeof(nightfull_buffer), "tonight: %dC", tonighttemp);
     text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
-//     printf("about to set wthr pts");
-    setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scalemax_tuple->value->int32 , scalemin_tuple->value->int32); 
-    printf("marking dirty");
+    int scalemax = scalemax_tuple->value->int32;
+    int scalemin = scalemin_tuple->value->int32;
+    if(use3day) setweatherptsfrom3hr(forecast3hrs,offset, arrlen->value->int32,scalemax,scalemin );
+      else setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scalemax, scalemin); 
     layer_mark_dirty(s_draw_layer);
   }else {printf("err1");}
 }
@@ -331,7 +379,7 @@ static void main_window_load(Window *window) {
   text_layer_set_text(s_todayweather_layer, "Loading weather...");
   // Add textlayers as a child layer to the Window's root layer
   layer_add_child(window_layer, text_layer_get_layer(s_time_layer));
-  layer_add_child(window_layer, text_layer_get_layer(s_seconds_layer));
+//   layer_add_child(window_layer, text_layer_get_layer(s_seconds_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_date_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_weather_layer));
   layer_add_child(window_layer, text_layer_get_layer(s_todayweather_layer));
@@ -350,9 +398,9 @@ static void main_window_load(Window *window) {
   //analogue partly derived from https://github.com/pebble-examples/ks-clock-face/blob/master/src/ks-clock-face.c
   GRect window_bounds = layer_get_bounds(window_layer);
   s_center = grect_center_point(&window_bounds);
-  //add the hour hand layer
-  layer_set_update_proc(s_hands_layer,update_analogue_time);
-  layer_add_child(window_layer,s_hands_layer);
+  //add the analogue time layer
+//   layer_set_update_proc(s_hands_layer,update_analogue_time);
+//   layer_add_child(window_layer,s_hands_layer);
 
   // Create the Bluetooth icon GBitmap
   s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON_SMALL);
@@ -381,7 +429,7 @@ static void main_window_unload(Window *window) {
   bitmap_layer_destroy(s_bt_icon_layer);
   gbitmap_destroy(s_weather_img_bitmap);
   bitmap_layer_destroy(s_weather_img_layer);
-    tick_timer_service_unsubscribe();
+  tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
   bluetooth_connection_service_unsubscribe();
 }
@@ -397,14 +445,15 @@ static void init() {
     .unload = main_window_unload
   });
   // Register with TickTimerService
-  tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+//   tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   // Register callbacks
   app_message_register_inbox_received(inbox_received_callback);
   app_message_register_inbox_dropped(inbox_dropped_callback);
   app_message_register_outbox_failed(outbox_failed_callback);
   app_message_register_outbox_sent(outbox_sent_callback);
   // Open AppMessage
-  //  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+//    app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
   app_message_open(500, 500);
   
   // Show the Window on the watch, with animated=true
@@ -418,7 +467,7 @@ static void init() {
 connection_service_subscribe((ConnectionHandlers) {
   .pebble_app_connection_handler = bluetooth_callback
 });
-  s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
+    s_my_path_ptr = gpath_create(&BOLT_PATH_INFO);
 }
 static void deinit(){
     // Destroy Window
