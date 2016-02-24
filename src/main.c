@@ -217,15 +217,24 @@ void setweatherpts(int curr, int maxtoday, int night, int tom, int scalemax,int 
 //   printf( "act123 pts %d y =  %d pts 8 y = %d, pts 0 =%d", 4,(int)(BOLT_PATH_INFO.points[4].y),(int)BOLT_PATH_INFO.points[8].y,(int)BOLT_PATH_INFO.points[0].y);
 }
 //set the weather chart points based on the 3hourly forecasts
-void setweatherptsfrom3hr(uint8_t* temps,int offset, int length, int max, int min){
+int calcwthval(int temp,int offset,double range,int min){
+  return weatherheight*gt_one_lt_zero(1-(temp-offset-min)/range);
+}
+void setweatherptsfrom3hr(int currtemp,uint8_t* temps,int offset, int length, int max, int min){
   double range =(double) max-min;
   int ptseparation =  (int)(weatherwidth/(numforecastpts-1)) ;//step between points on the new chart
   GPoint pts[BOLT_PATH_INFO.num_points];
 //   printf("int pts %d ",(int)(BOLT_PATH_INFO.num_points));
-    for(uint32_t i=0;i<BOLT_PATH_INFO.num_points;i++){
+  //use the current temp for the left most point (ignoring the fact that the time between that point and the next won't be 3hrs as it is for every pair in the forecasts array)
+  pts[0].x = 0;
+  pts[0].y=calcwthval(currtemp,0,range,min);
+//   printf("currtemp %d, y=%d", currtemp,pts[0].x);
+//   printf("range = %d, height = %d",(int)range,weatherheight);
+    for(uint32_t i=1;i<BOLT_PATH_INFO.num_points;i++){
       pts[i].x =  ptseparation*i;
-      pts[i].y = weatherheight *gt_one_lt_zero(1-(temps[i]-offset-min)/range);
-//       printf("i = %d, x=%d, y=%d, min=%d, max=%d, temp=%d, ptsep=%d, chartw=%d",(int)i,(int)(pts[i].x),(int)(pts[i].y),min,max,(int)temps[i],ptseparation,weatherwidth);
+      //start from the 0th entry in the temps array hence the (i-1) for that reference 
+      pts[i].y = weatherheight *gt_one_lt_zero(1-(temps[i-1]-offset-min)/range);
+//       printf("i = %d, x=%d, y=%d, min=%d, max=%d, temp=%d, ptsep=%d, chartw=%d",(int)i,(int)(pts[i].x),(int)(pts[i].y),min,max,(int)temps[i-1],ptseparation,weatherwidth);
     }
 //     printf("abc %d",(int)BOLT_PATH_INFO.num_points);
   for(uint32_t i=0;i<(uint32_t)numforecastpts;i++){
@@ -313,7 +322,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     text_layer_set_text(s_forecastweather_layer,nightfull_buffer);
     int scalemax = scalemax_tuple->value->int32;
     int scalemin = scalemin_tuple->value->int32;
-    if(use3day) setweatherptsfrom3hr(forecast3hrs,offset, arrlen->value->int32,scalemax,scalemin );
+    if(use3day) setweatherptsfrom3hr(currtemp,forecast3hrs,offset, arrlen->value->int32,scalemax,scalemin );
       else setweatherpts(currtemp,maxtodaytemp,tonighttemp,tomtemp,scalemax, scalemin); 
     layer_mark_dirty(s_draw_layer);
   }else {printf("err1");}
